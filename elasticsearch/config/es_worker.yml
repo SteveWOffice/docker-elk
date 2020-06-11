@@ -1,0 +1,4 @@
+cluster.name: "es-cluster"
+cluster.initial_master_nodes: es_master, es_worker_01, es_worker_02
+bootstrap.memory_lock: true
+network.host: 0

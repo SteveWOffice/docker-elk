@@ -1,7 +1,8 @@
-version: '3.2'
+version: '3.4'
 
 services:
-  elasticsearch:
+  es_master:
+    container_name: es_master
     build:
       context: elasticsearch/
       args:
@@ -12,21 +13,76 @@ services:
         target: /usr/share/elasticsearch/config/elasticsearch.yml
         read_only: true
       - type: volume
-        source: elasticsearch
+        source: es_master_data
         target: /usr/share/elasticsearch/data
     ports:
       - "9200:9200"
       - "9300:9300"
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-      ELASTIC_PASSWORD: changeme
-      # Use single node discovery in order to disable production mode and avoid bootstrap checks
-      # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
-      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xmx1g -Xms1g"
+      node.name: es_master
+      discovery.seed_hosts: es_worker_01,es_worker_02
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     networks:
       - elk
+  es_worker_01:
+    container_name: es_worker_01
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    volumes:
+      - type: bind
+        source: ./elasticsearch/config/es_worker.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+      - type: volume
+        source: es_worker_01_data
+        target: /usr/share/elasticsearch/data
+    environment:
+      ES_JAVA_OPTS: "-Xmx1g -Xms1g"
+      node.name: es_worker_01
+      discovery.seed_hosts: es_master,es_worker_02
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - elk
+    depends_on:
+      - es_master
+  es_worker_02:
+    container_name: es_worker_02
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    volumes:
+      - type: bind
+        source: ./elasticsearch/config/es_worker.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+      - type: volume
+        source: es_worker_02_data
+        target: /usr/share/elasticsearch/data
+    environment:
+      ES_JAVA_OPTS: "-Xmx1g -Xms1g"
+      node.name: es_worker_02
+      discovery.seed_hosts: es_master,es_worker_01
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - elk
+    depends_on:
+      - es_master
 
   logstash:
+    container_name: logstash
     build:
       context: logstash/
       args:
@@ -49,9 +105,10 @@ services:
     networks:
       - elk
     depends_on:
-      - elasticsearch
+      - es_master
 
   kibana:
+    container_name: kibana
     build:
       context: kibana/
       args:
@@ -66,11 +123,16 @@ services:
     networks:
       - elk
     depends_on:
-      - elasticsearch
+      - es_master
 
 networks:
   elk:
     driver: bridge
 
 volumes:
-  elasticsearch:
+  es_master_data: 
+    driver: local
+  es_worker_01_data:
+    driver: local
+  es_worker_02_data:
+    driver: local
