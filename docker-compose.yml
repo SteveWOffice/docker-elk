@@ -105,7 +105,7 @@ services:
     networks:
       - elk
     depends_on:
-      - es_master
+      - elasticsearch
 
   kibana:
     container_name: kibana
@@ -123,7 +123,7 @@ services:
     networks:
       - elk
     depends_on:
-      - es_master
+      - elasticsearch
 
 networks:
   elk:
